@@ -13,3 +13,11 @@
 #proPanel .card small{color:#98a9ff}
 #proPanel .grid2{align-items:start}
 @media(max-width:480px){.tabs{gap:3px}.tabs button{padding:10px 7px;font-size:11px;min-width:auto;flex:1}}
+.gif-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0 17px}
+.gif-card{border:1px solid #45546b;border-radius:13px;background:#0b1220;color:#e1eeed;overflow:hidden;padding:0;text-align:left;cursor:pointer}
+.gif-card img{display:block;width:100%;height:125px;object-fit:cover}
+.gif-card span{display:block;padding:9px;font-size:12px;font-weight:650}
+.gif-card:focus-visible,.gif-card:hover{outline:2px solid #5de1ce}
+.lyric-tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.lyric-tools .btn{font-size:12px}
+#settingsBody select{width:100%;background:#111b28;color:#e8f8f5;border:1px solid #45606d;border-radius:9px;padding:11px;margin:7px 0}
