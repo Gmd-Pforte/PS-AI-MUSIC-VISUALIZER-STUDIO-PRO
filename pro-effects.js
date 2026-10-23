@@ -9,6 +9,7 @@ window.PSPro = (() => {
     lyricSize:7,lyricY:77,lyricOffset:0,lyricDuration:4});
   const normalize=value=>({...defaults(),...(value||{})});
   let backdrop=null,objectUrl=null,lyricsCache=null,lastLyrics='';
+  const BACKDROPS=[['cyan','Türkiser Nebel'],['violet','Violette Wolken'],['amber','Warme Glut'],['blue','Blaue Tiefe']];
 
   function imgReady(file){if(objectUrl)URL.revokeObjectURL(objectUrl);
     objectUrl=URL.createObjectURL(file);const image=new Image();image.src=objectUrl;backdrop=image;
@@ -124,6 +125,8 @@ window.PSPro = (() => {
     panel.innerHTML=`<div class="card"><small>BEWEGTER HINTERGRUND</small><h2>GIF & Bilder</h2>
       <p class="hint-text">Animierte GIFs und Bilder als vollflächiger Hintergrund. Der Effekt wird hinter allen anderen Ebenen angezeigt.</p>
       <label class="btn primary">↑ GIF oder Bild wählen<input id="proGifInput" type="file" accept="image/gif,image/png,image/jpeg,image/webp,.gif" hidden></label>
+      <h3>Bewegte Hintergründe · Offline-Bibliothek</h3><p class="hint-text">Vier enthaltene Endlos-GIFs. Tippe auf ein Motiv, um es sofort einzusetzen.</p>
+      <div id="proGifGallery" class="gif-gallery"></div>
       <p id="proGifStatus" class="hint-text">Noch kein Hintergrund gewählt.</p>
       <label class="check"><input id="proGifEnabled" type="checkbox"> Hintergrund anzeigen</label>
       <div class="grid2"><label>Deckkraft<input id="proGifOpacity" type="range" min="0" max="1" step=".05"></label>
@@ -143,6 +146,8 @@ window.PSPro = (() => {
     <div class="card"><small>SONGTEXT-SYNCHRONISATION</small><h2>Lyrics-Animator</h2>
       <p class="hint-text">Füge Songtext mit Zeitmarken ein, etwa [00:12.50] Deine Zeile. Ohne Zeitmarken werden die Zeilen gleichmäßig verteilt.</p>
       <textarea id="proLyrics" rows="8" placeholder="[00:00.00] Erste Zeile&#10;[00:04.00] Zweite Zeile"></textarea>
+      <div class="lyric-tools"><label class="btn secondary">↑ LRC / TXT auswählen<input id="proLyricFile" type="file" accept=".lrc,.txt,text/plain" hidden></label><button type="button" id="proReadSongLyrics" class="btn secondary">♫ Songtext aus MP3-Tags lesen</button></div>
+      <p id="proLyricStatus" class="hint-text">MP3s mit eingebettetem Songtext lassen sich auslesen. Für reine Gesangsaufnahmen ohne Textdaten ist eine separate Spracherkennung nötig.</p>
       <div class="grid2"><label>Textmodus<select id="proLyricMode"><option value="karaoke">Karaoke-Fortschritt</option>
       <option value="typewriter">Schreibmaschine</option><option value="slide">Sanftes Einblenden</option>
       <option value="pulse">Leuchtender Puls</option></select></label>
@@ -177,8 +182,15 @@ window.PSPro = (() => {
       try{await storage('put',file)}catch(err){$('proGifStatus').textContent+=' · konnte nicht dauerhaft gespeichert werden'}
       persist();event.target.value='';
     });
+    const gallery=$('proGifGallery');for(const [key,name]of BACKDROPS){const btn=document.createElement('button');btn.className='gif-card';btn.type='button';btn.innerHTML=`<img src="assets/gifs/${key}.gif" alt=""><span>${name}</span>`;btn.onclick=async()=>{const status=$('proGifStatus');status.textContent='GIF wird geladen …';try{const response=await fetch(`assets/gifs/${key}.gif`);if(!response.ok)throw Error('Datei nicht verfügbar');const blob=await response.blob();imgReady(blob);const p=getProject().pro;p.gifEnabled=true;$('proGifEnabled').checked=true;status.textContent=name+' gewählt · als Hintergrund gespeichert';await storage('put',blob);persist()}catch(e){status.textContent='Hintergrund konnte nicht geladen werden: '+e.message}};gallery.append(btn)}
+    $('proLyricFile').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;try{const value=await file.text();getProject().pro.lyrics=value;$('proLyrics').value=value;$('proLyricStatus').textContent=file.name+' eingelesen. Zeitmarken werden übernommen.';persist()}catch(e){$('proLyricStatus').textContent='Songtext konnte nicht geöffnet werden'}event.target.value=''});
+    $('proReadSongLyrics').addEventListener('click',async()=>{const input=document.createElement('input');input.type='file';input.accept='.mp3,audio/mpeg';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;const status=$('proLyricStatus');status.textContent='Prüfe eingebettete MP3-Lyrics …';try{const words=await extractMp3Lyrics(file);if(!words){status.textContent='Diese MP3 enthält keine eingebetteten Lyrics. Eine automatische Transkription des Gesangs ist noch nicht enthalten.';return}getProject().pro.lyrics=words;$('proLyrics').value=words;persist();status.textContent='Songtext aus MP3-Metadaten übernommen.'}catch(e){status.textContent='MP3-Tags konnten nicht gelesen werden.'}};input.click()});
     sync();restoreMedia();
     return {sync};
   }
+  async function extractMp3Lyrics(file){const bytes=new Uint8Array(await file.slice(0,Math.min(file.size,4_000_000)).arrayBuffer());if(bytes.length<10||String.fromCharCode(...bytes.slice(0,3))!=='ID3')return '';
+    const ver=bytes[3],size=(bytes[6]<<21)|(bytes[7]<<14)|(bytes[8]<<7)|bytes[9];let offset=10;const max=Math.min(bytes.length,size+10);
+    const decode=(data,enc)=>{if(enc===0)return new TextDecoder('iso-8859-1').decode(data);if(enc===3)return new TextDecoder('utf-8').decode(data);let view=data;if(enc===1&&data.length>1){const be=data[0]===254&&data[1]===255;const le=data[0]===255&&data[1]===254;if(be||le)view=data.slice(2);if(be){const swapped=new Uint8Array(view.length);for(let i=0;i+1<view.length;i+=2){swapped[i]=view[i+1];swapped[i+1]=view[i]}view=swapped}}return new TextDecoder('utf-16le').decode(view)};
+    while(offset+10<=max){const frame=String.fromCharCode(...bytes.slice(offset,offset+4));if(!/^[A-Z0-9]{4}$/.test(frame))break;let len=ver===4?((bytes[offset+4]<<21)|(bytes[offset+5]<<14)|(bytes[offset+6]<<7)|bytes[offset+7]):((bytes[offset+4]<<24)|(bytes[offset+5]<<16)|(bytes[offset+6]<<8)|bytes[offset+7]);if(!len||len<0||offset+10+len>max)break;const payload=bytes.slice(offset+10,offset+10+len);if(frame==='USLT'&&payload.length>4){const enc=payload[0],start=4;let end=start;const twoByte=enc===1||enc===2;while(end<payload.length-(twoByte?1:0)){if(payload[end]===0&&(!twoByte||payload[end+1]===0))break;end+=twoByte?2:1}const value=decode(payload.slice(Math.min(payload.length,end+(twoByte?2:1))),enc).replace(/\0/g,'').trim();if(value)return value}offset+=10+len}return ''}
   return {defaults,normalize,init,background,scene3D,lyrics};
 })();
