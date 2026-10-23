@@ -63,7 +63,21 @@
       if(l.type==='text'){ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=l.color;ctx.font=`700 ${Math.max(10,l.fontSize*w/100)}px system-ui, sans-serif`;ctx.fillText(l.text||'TEXT',0,0,w*.94)}
       if(l.type==='image'){const img=getImage(l.src);if(img?.complete&&img.naturalWidth){const size=Math.min(w,h)*.43;const ratio=img.naturalWidth/img.naturalHeight;const iw=ratio>1?size:size*ratio,ih=ratio>1?size/ratio:size;ctx.drawImage(img,-iw/2,-ih/2,iw,ih)}}ctx.restore()}
     if(project.guides){ctx.strokeStyle='#ffffff33';ctx.setLineDash([8,7]);ctx.strokeRect(w*.05,h*.05,w*.9,h*.9);ctx.beginPath();ctx.moveTo(w/2,0);ctx.lineTo(w/2,h);ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.setLineDash([])}frameCounter++;if(time-lastFps>1200){$('fpsStatus').textContent=`${Math.round(frameCounter*1000/(time-lastFps))} FPS`;lastFps=time;frameCounter=0}lastFrame=time;requestAnimationFrame(paint)}
-  function downloadFile(blob,name){const link=document.createElement('a');const url=URL.createObjectURL(blob);link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+  async function downloadFile(blob,name){
+    if(window.PSAndroid){
+      try{
+        const bytes=new Uint8Array(await blob.arrayBuffer());
+        window.PSAndroid.begin(name,blob.type||'application/octet-stream');
+        for(let offset=0;offset<bytes.length;offset+=49152){
+          const chunk=bytes.subarray(offset,offset+49152);
+          let binary='';for(let i=0;i<chunk.length;i++)binary+=String.fromCharCode(chunk[i]);
+          window.PSAndroid.append(btoa(binary));
+        }
+        window.PSAndroid.finish();return;
+      }catch(e){console.error('Android download failed',e);toast('Speichern fehlgeschlagen');return}
+    }
+    const link=document.createElement('a');const url=URL.createObjectURL(blob);link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)
+  }
   function saveProject(){downloadFile(new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),'PS_Visualizer_Projekt.json');toast('Projektdatei gespeichert')}
   function choosePreset(index){const p=PRESETS[index];if(!p)return;historyPush();project.layers=p.layers.map(x=>({...x,id:uid()}));selectedId=project.layers[0]?.id;renderAllControls();persist();toast(p.name+' geladen')}
   function renderPresets(){const grid=$('builtinPresets');PRESETS.forEach((p,i)=>{const b=document.createElement('button');b.className='preset-item';const name=document.createElement('strong');name.textContent=p.name;const desc=document.createElement('small');desc.textContent=p.subtitle;b.append(name,desc);b.onclick=()=>choosePreset(i);grid.append(b)});renderSavedPresets()}
