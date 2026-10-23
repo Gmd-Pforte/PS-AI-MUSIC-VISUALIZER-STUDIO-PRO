@@ -2,12 +2,12 @@ plugins { id 'com.android.application' }
 android {
   namespace 'music.psai.visualizer'
   compileSdk 35
-  defaultConfig { applicationId 'music.psai.visualizer'; minSdk 26; targetSdk 35; versionCode 4; versionName '1.3' }
+  defaultConfig { applicationId 'music.psai.visualizer'; minSdk 26; targetSdk 35; versionCode 5; versionName '1.4' }
   compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies { implementation 'androidx.webkit:webkit:1.12.1' }
 tasks.register('syncWeb', Copy) {
-  from('../../') { include 'index.html', 'styles.css', 'pro.css', 'app.js', 'avee-import.js', 'pro-effects.js', 'icon.svg', 'manifest.webmanifest', 'sw.js' }
+  from('../../') { include 'index.html', 'styles.css', 'pro.css', 'app.js', 'avee-import.js', 'pro-effects.js', 'icon.svg', 'manifest.webmanifest', 'sw.js', 'assets/gifs/*.gif' }
   into('src/main/assets/web')
 }
 tasks.named('preBuild').configure { dependsOn tasks.named('syncWeb') }
