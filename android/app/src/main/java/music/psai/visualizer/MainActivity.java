@@ -43,8 +43,21 @@ public class MainActivity extends Activity {
       @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
         if(pendingFiles!=null)pendingFiles.onReceiveValue(null);
         pendingFiles=callback;
-        try{startActivityForResult(params.createIntent(),PICK_FILE);return true;}
-        catch(Exception ex){pendingFiles=null;Toast.makeText(MainActivity.this,"Dateiauswahl nicht verfügbar",Toast.LENGTH_SHORT).show();return false;}
+        try{
+          Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+          picker.addCategory(Intent.CATEGORY_OPENABLE);
+          // Android recognizes Avee .viz files as application/octet-stream (BIN).
+          // MIME filters such as application/zip make these files unselectable.
+          picker.setType("*/*");
+          picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          picker.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE);
+          startActivityForResult(picker,PICK_FILE);
+          return true;
+        }catch(Exception ex){
+          pendingFiles.onReceiveValue(null);pendingFiles=null;
+          Toast.makeText(MainActivity.this,"Dateiauswahl nicht verfügbar",Toast.LENGTH_SHORT).show();
+          return true;
+        }
       }
     });
     web.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
